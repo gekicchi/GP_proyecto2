@@ -15,7 +15,7 @@ public class GridManager : MonoBehaviour
 
     public Vector2Int goalPos;
 
-    public Vector3 origin = Vector3.zero;
+    private Vector3 origin = Vector3.zero;
     private GridCellType[,] gridLogic;
     public List<Vector2Int> holesList;
 
