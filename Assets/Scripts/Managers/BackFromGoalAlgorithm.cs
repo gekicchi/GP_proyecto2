@@ -5,7 +5,7 @@ using UnityEngine;
 public class BackFromGoalAlgorithm : MonoBehaviour
 {
     private GridManager grid;
-    private int backwardsSteps = 20;
+    private int backwardsSteps = 100;
 
     public BackFromGoalAlgorithm(GridManager grid)
     {
@@ -43,6 +43,9 @@ public class BackFromGoalAlgorithm : MonoBehaviour
 
         // ------------ COLOCANDO ROCAS ------------ //
         List<Vector2Int> rocksFinal = new List<Vector2Int>();
+        foreach (var hole in holes)
+            rocksFinal.Add(hole);
+        /*
         for (int i = 0; i < numRocks; i++)
         {
             Vector2Int rockPos;
@@ -54,7 +57,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
             } while ((grid.GetCell(rockPos) != GridCellType.Empty || holes.Contains(rockPos) || rockAttempts > 100));
 
             rocksFinal.Add(rockPos);
-        }
+        }*/
 
         // ------------ COLOCANDO JUGADOR ------------ //
         Vector2Int playerFinalPos = grid.GetEmptyAdjacent(goalPos);
@@ -65,6 +68,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
 
         for (int i = 0; i <= backwardsSteps; i++)
         {
+            /*
             Vector2Int dir = GetRandomDirection();
             Vector2Int newPlayerPos = playerPos + dir;
 
@@ -79,7 +83,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                 if (rockIndex == -1)
                     continue;
 
-                Vector2Int rockPrevPos = newPlayerPos - dir;
+                Vector2Int rockPrevPos = newPlayerPos + dir;
 
                 if (grid.IsInsideGrid(rockPrevPos) && IsMovableBackward(rockPrevPos))
                 {
@@ -87,6 +91,38 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                     playerPos = newPlayerPos;
                 }
             }
+            */
+
+            Vector2Int dir = GetRandomDirection();
+            Vector2Int newPlayerPos = playerPos + dir;
+            Vector2Int pullPlayerPos = playerPos - dir;
+
+            // movimiento ilegal
+            if (!grid.IsInsideGrid(newPlayerPos) || grid.GetCell(newPlayerPos) == GridCellType.Wall)
+                continue;
+
+            int rockIndex = rocksPos.FindIndex(r => r == pullPlayerPos);
+            Debug.Log("indice roca: " + rockIndex);
+
+            if (rockIndex != -1) // jalando roca
+            {
+                float chanceToPull = Random.Range(0f, 1f);
+                if (chanceToPull < 0.25f)
+                    continue;
+
+                Vector2Int newRockPos = playerPos;
+
+                if (grid.IsInsideGrid(newRockPos))
+                {
+                    Debug.Log("prev rock pos: " + rocksPos[rockIndex]);
+                    rocksPos[rockIndex] = newRockPos;
+                    Debug.Log("new rock pos: " + rocksPos[rockIndex]);
+                    playerPos = newPlayerPos;
+                }
+            }
+
+            if (IsMovableBackward(newPlayerPos)) // se mueve a una casilla vacia
+                playerPos = newPlayerPos;
         }
 
         grid.SpawnHoles(holes);

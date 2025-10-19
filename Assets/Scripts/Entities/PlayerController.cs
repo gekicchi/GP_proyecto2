@@ -20,8 +20,7 @@ public class PlayerController : MonoBehaviour
     private void Start()
     {
         grid = FindFirstObjectByType<GridManager>();
-
-        gridPos = new Vector2Int(0, 0);
+        gridPos = new Vector2Int(grid.playerPos.x, grid.playerPos.y);
         transform.position = grid.GridToWorld(gridPos);
         grid.SetCell(gridPos, GridCellType.Player);
     }

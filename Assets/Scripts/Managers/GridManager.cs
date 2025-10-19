@@ -12,6 +12,7 @@ public class GridManager : MonoBehaviour
     public GameObject goalPrefab;
     public Rock rockPrefab;
     public Transform gridParent;
+    public Vector2Int playerPos;
 
     public Vector2Int goalPos;
 
@@ -74,6 +75,8 @@ public class GridManager : MonoBehaviour
             Destroy(prevPlayer.gameObject);
 
         Instantiate(playerPrefab, GridToWorld(pos), Quaternion.identity, gridParent);
+        Debug.Log("putting player in: " + pos);
+        playerPos = pos;
         SetCell(pos, GridCellType.Player);
     }
 
