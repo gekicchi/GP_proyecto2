@@ -4,8 +4,12 @@ using UnityEngine;
 public class BackFromGoalAlgorithm : MonoBehaviour
 {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     private GridManager grid;
     private int backwardsSteps = 100;
+=======
+	private GridManager grid;
+>>>>>>> Stashed changes
 =======
 	private GridManager grid;
 >>>>>>> Stashed changes
@@ -164,6 +168,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         if (numHoles < 1) numHoles = 1;
         if (numRocks < numHoles) numRocks = numHoles;
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
         // ------------ COLOCANDO ROCAS ------------ //
         List<Vector2Int> rocksFinal = new List<Vector2Int>();
@@ -377,12 +382,164 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                 playerPos = newPlayerPos;
 =======
 
+=======
+        // 4) Colocar agujeros
+			List<Vector2Int> holes = grid.GenerateRandomHoles(numHoles);
+			// Evitar agujeros en el borde: construir finalHoles reemplazando los que estén en la orilla
+			List<Vector2Int> finalHoles = new List<Vector2Int>();
+			HashSet<Vector2Int> used = new HashSet<Vector2Int>(holes);
+			foreach (var h in holes)
+			{
+				if (!IsBorder(h))
+				{
+					finalHoles.Add(h);
+					continue;
+				}
+				// intentar buscar reemplazo interior
+				bool found = false;
+				for (int attempt = 0; attempt < 500; attempt++)
+				{
+					Vector2Int cand = new Vector2Int(Random.Range(1, grid.width - 1), Random.Range(1, grid.height - 1));
+					if (used.Contains(cand)) continue;
+					if (grid.GetCell(cand) != GridCellType.Empty) continue;
+					finalHoles.Add(cand);
+					used.Add(cand);
+					found = true;
+					break;
+				}
+				if (!found)
+				{
+					// fallback: conservar el agujero original y avisar
+					finalHoles.Add(h);
+					if (debugSimulation) Debug.LogWarning($"[BackFromGoal] No replacement found for border hole {h}, keeping it.");
+				}
+			}
+			// Instanciar prefabs de agujero con la lista final
+			if (finalHoles != null && finalHoles.Count > 0)
+			{
+				grid.SpawnHoles(finalHoles);
+				if (debugSimulation) Debug.Log($"[BackFromGoal] Spawned {finalHoles.Count} hole prefabs (final)");
+			}
+			if (finalHoles.Count < numHoles)
+			{
+				if (debugSimulation) Debug.LogWarning($"[BackFromGoal] Could only generate {finalHoles.Count} holes instead of requested {numHoles}");
+				// ajustar numRocks para emparejar la cantidad real de agujeros
+				if (numRocks < finalHoles.Count)
+				{
+					if (debugSimulation) Debug.Log($"[BackFromGoal] Increasing numRocks from {numRocks} to {finalHoles.Count} to match actual holes");
+					numRocks = finalHoles.Count;
+				}
+			}
+
+		// 5) Colocar rocas (primero en agujeros)
+		List<Vector2Int> rocksPos = new List<Vector2Int>();
+		List<Vector2Int> holesCopy = new List<Vector2Int>(finalHoles);
+        int placeInHoles = Mathf.Min(numRocks, holesCopy.Count);
+        for (int i = 0; i < placeInHoles; i++)
+        {
+            int idx = Random.Range(0, holesCopy.Count);
+            rocksPos.Add(holesCopy[idx]);
+            holesCopy.RemoveAt(idx);
+        }
+
+        // 6) Preparar simulación
+        GridCellType[,] simGrid = new GridCellType[grid.width, grid.height];
+        for (int x = 0; x < grid.width; x++)
+            for (int y = 0; y < grid.height; y++)
+                simGrid[x, y] = grid.GetCell(new Vector2Int(x, y));
+
+        foreach (var r in rocksPos)
+            simGrid[r.x, r.y] = GridCellType.Rock;
+
+        Vector2Int playerPos = goalPos;
+		List<int> holeRockIndices = new List<int>();
+		for (int i = 0; i < rocksPos.Count; i++)
+			if (finalHoles.Contains(rocksPos[i]))
+				holeRockIndices.Add(i);
+
+		if (debugSimulation)
+			Debug.Log($"[BackFromGoal] goal={goalPos}, holes={string.Join(",", finalHoles)}, initialRocks={string.Join(",", rocksPos)}");
+
+        // 7) Retroceso global corregido: jalar todas las rocas fuera de los agujeros
+        Dictionary<int, Vector2Int> lastMove = new Dictionary<int, Vector2Int>();
+
+        for (int step = 0; step < backwardsSteps; step++)
+        {
+            bool anyMoved = false;
+
+            // iterar TODAS las rocas, no solo las de agujeros
+            for (int i = 0; i < rocksPos.Count; i++)
+            {
+                Vector2Int rpos = rocksPos[i];
+
+                // si ya está lejos de los agujeros, no mover más
+                if (MinDistanceToHoles(rpos, holes) > scatterDistance + 2)
+                    continue;
+
+                // probar todas las direcciones
+                Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+                System.Array.Sort(dirs, (a, b) =>
+                {
+                    int da = MinDistanceToHoles(rpos + a, holes);
+                    int db = MinDistanceToHoles(rpos + b, holes);
+                    return db.CompareTo(da); // priorizar alejamiento
+                });
+
+                foreach (var dir in dirs)
+                {
+                    // ❌ Evitar vaivén: no repetir movimiento inverso inmediato
+                    if (lastMove.ContainsKey(i) && lastMove[i] == -dir)
+                        continue;
+
+                    Vector2Int targ = rpos + dir;
+                    Vector2Int behind = rpos - dir;
+
+                    // validación fuerte
+                    if (!grid.IsInsideGrid(targ) || !grid.IsInsideGrid(behind))
+                        continue;
+                    if (simGrid[targ.x, targ.y] == GridCellType.Wall) continue;
+                    if (IsRockAtPosition(targ, rocksPos)) continue;
+                    if (IsBorder(targ)) continue;
+                    if (IsCornerPosition(simGrid, targ)) continue;
+                    List<PushAction> pushesToReach; 
+                    if (!CanPlayerReachWithPush(playerPos, behind, simGrid, rocksPos, i, out pushesToReach))
+                    {
+                        continue;
+                    }
+
+                    // evitar pegarse al muro (si está a 1 celda)
+                    int distWallX = Mathf.Min(targ.x, grid.width - 1 - targ.x);
+                    int distWallY = Mathf.Min(targ.y, grid.height - 1 - targ.y);
+                    if (distWallX <= 1 || distWallY <= 1) continue;
+
+                    // mover jugador detrás y actualizar
+                    playerPos = behind;
+                    simGrid[rpos.x, rpos.y] = holes.Contains(rpos) ? GridCellType.Hole : GridCellType.Empty;
+                    simGrid[targ.x, targ.y] = GridCellType.Rock;
+                    rocksPos[i] = targ;
+                    playerPos = rpos; // termina donde estaba la roca
+
+                    // registrar último movimiento para prevenir vaivén
+                    lastMove[i] = dir;
+
+                    if (debugSimulation)
+                        Debug.Log($"[BackFromGoal] Step {step}: rock {i} {rpos}->{targ}, player {behind}->{rpos}");
+
+                    anyMoved = true;
+                    break; // siguiente roca
+                }
+            }
+
+>>>>>>> Stashed changes
             // si ninguna roca se movió este ciclo, termina
             if (!anyMoved)
             {
                 if (debugSimulation) Debug.Log("[BackFromGoal] no rocks moved this iteration, stopping.");
                 break;
             }
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         }
 
