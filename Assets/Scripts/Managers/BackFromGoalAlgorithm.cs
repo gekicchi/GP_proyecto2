@@ -6,7 +6,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     private GridManager grid;
 
     [Tooltip("Número de pasos máximos por roca al retroceder desde la meta")]
-    public int backwardsSteps = 100;
+    public int backwardsSteps = 40;
     [Tooltip("Profundidad máxima de empujes encadenados")]
     public int maxPushDepth = 8;
     [Tooltip("Habilitar logs de depuración de la simulación")]

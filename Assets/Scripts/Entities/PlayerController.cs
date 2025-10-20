@@ -20,16 +20,23 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
+        // Asegurar referencia al GridManager
         grid = FindFirstObjectByType<GridManager>();
-        gridPos = new Vector2Int(grid.playerPos.x, grid.playerPos.y);
-        transform.position = grid.GridToWorld(gridPos);
-        grid.SetCell(gridPos, GridCellType.Player);
 
-
-        // Si no se inicializó previamente (via InitializePosition), usar (0,0) por defecto.
-        if (!initialized)
+        // Si InitializePosition ya fijó la posición, no sobrescribirla
+        if (initialized)
         {
-            gridPos = new Vector2Int(0, 0);
+            // asegurar que la celda esté marcada como Player salvo que sea Goal
+            if (grid != null && grid.GetCell(gridPos) != GridCellType.Goal)
+                grid.SetCell(gridPos, GridCellType.Player);
+            transform.position = grid != null ? grid.GridToWorld(gridPos) : transform.position;
+            return;
+        }
+
+        // Si no se inicializó previamente (via InitializePosition), usar la posición del GridManager si existe
+        if (grid != null)
+        {
+            gridPos = new Vector2Int(grid.playerPos.x, grid.playerPos.y);
             transform.position = grid.GridToWorld(gridPos);
             grid.SetCell(gridPos, GridCellType.Player);
             initialized = true;

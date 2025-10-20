@@ -74,11 +74,8 @@ public class GridManager : MonoBehaviour
         if (prevPlayer != null)
             Destroy(prevPlayer.gameObject);
 
-
-        Instantiate(playerPrefab, GridToWorld(pos), Quaternion.identity, gridParent);
-        Debug.Log("putting player in: " + pos);
+        // Registrar posición y crear un único prefab de jugador
         playerPos = pos;
-
         var playerObj = Instantiate(playerPrefab, GridToWorld(pos), Quaternion.identity, gridParent);
         // Intentar obtener PlayerController en root o en hijos
         var pc = playerObj.GetComponent<PlayerController>() ?? playerObj.GetComponentInChildren<PlayerController>();
