@@ -128,8 +128,7 @@ public class PlayerController : MonoBehaviour
                         }
                         else if (rockTarget == GridCellType.Hole)
                         {
-                            // Roca cae en agujero
-                            // Roca cae en agujero: marcar el agujero como cubierto por la roca y eliminar el objeto
+
                             grid.SetCell(rock.gridPos, GridCellType.Empty);
                             grid.SetCell(rockNewPos, GridCellType.Rock); // el agujero queda ahora "cubierto" por una roca
                             Destroy(rock.gameObject);

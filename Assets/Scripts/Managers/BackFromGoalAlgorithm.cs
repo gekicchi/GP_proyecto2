@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // --- Objeto para guardar el estado del nivel ---
-// Puedes mover esta clase a su propio archivo LevelState.cs
 public class LevelState
 {
     // Elementos estáticos (no cambian en Hill Climbing)
@@ -60,14 +59,12 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     [Tooltip("Distancia Manhattan objetivo a agujeros al dispersar rocas (heurística)")]
     public int scatterDistance = 3;
 
-    // Unity MonoBehaviours should not rely on constructors for initialization.
-    // Provide an explicit Initialize method so other scripts can set the GridManager.
     public void Initialize(GridManager grid)
     {
         this.grid = grid;
     }
 
-    // Public property to allow other scripts to set/get the GridManager without calling Initialize.
+
     public GridManager Grid
     {
         get { return grid; }
@@ -85,8 +82,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
             this.to = to;
         }
     }
-
-    // ... (CanPlayerReachWithPush y sus helpers DFS/Recursive no cambian) ...
 
     private bool CanPlayerReachWithPush(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos, int excludedRockIdx, out List<PushAction> outPushes)
     {
@@ -107,7 +102,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     private bool CanPlayerReachWithPushDFS(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos, int excludedRockIdx, int depth, List<PushAction> accumulated)
     {
         if (depth >= maxPushDepth) return false;
-        // Try all rocks (except excluded) and directions as candidate pushes
         int rockCount = rocksPos.Count;
         Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
         for (int ri = 0; ri < rockCount; ri++)
@@ -115,26 +109,20 @@ public class BackFromGoalAlgorithm : MonoBehaviour
             if (ri == excludedRockIdx) continue;
             foreach (var d in dirs)
             {
-                // make temp copies
                 List<Vector2Int> tempRocks = new List<Vector2Int>(rocksPos);
                 GridCellType[,] tempGrid = (GridCellType[,])simGrid.Clone();
                 List<PushAction> pushesForThis;
                 if (!TryComputePushesForIndex(ri, d, tempGrid, tempRocks, excludedRockIdx, out pushesForThis))
-                    continue;
-                // apply pushesForThis already mutated tempRocks inside TryComputePushesForIndex
-                // check reachable now
-                if (CanPlayerReach(start, target, tempGrid, tempRocks))
-                {
-                    // append pushes and return
-                    accumulated.AddRange(pushesForThis);
-                    return true;
-                }
-                // else, try deeper sequences
+
+                    if (CanPlayerReach(start, target, tempGrid, tempRocks))
+                    {
+                        accumulated.AddRange(pushesForThis);
+                        return true;
+                    }
                 List<PushAction> deeperAccum = new List<PushAction>(accumulated);
                 deeperAccum.AddRange(pushesForThis);
                 if (CanPlayerReachWithPushDFS(start, target, tempGrid, tempRocks, excludedRockIdx, depth + 1, deeperAccum))
                 {
-                    // copy back the found sequence
                     accumulated.Clear();
                     accumulated.AddRange(deeperAccum);
                     return true;
@@ -147,7 +135,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     private bool TryComputePushesForIndex(int rockIndex, Vector2Int dir, GridCellType[,] simGrid, List<Vector2Int> tempRocks, int excludedRockIdx, out List<PushAction> outPushes)
     {
         outPushes = new List<PushAction>();
-        // use a helper that mutates tempRocks and fills outPushes
         return TryComputePushesRecursive(rockIndex, dir, simGrid, tempRocks, 0, outPushes, excludedRockIdx);
     }
 
@@ -157,35 +144,26 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         if (rockIndex < 0 || rockIndex >= tempRocks.Count) return false;
         Vector2Int curPos = tempRocks[rockIndex];
         Vector2Int targetPos = curPos + dir;
-        // bounds and wall
         if (!grid.IsInsideGrid(targetPos)) return false;
         if (simGrid[targetPos.x, targetPos.y] == GridCellType.Wall) return false;
-        // avoid pushing into borders or corners (same heuristics as generator)
         if (IsBorder(targetPos)) return false;
         if (IsCornerPosition(simGrid, targetPos)) return false;
-        // check if another rock occupies targetPos
         int hit = tempRocks.FindIndex(r => r == targetPos);
         if (hit == -1)
         {
-            // can move current rock into empty target
             pushes.Add(new PushAction(rockIndex, targetPos));
-            // apply to tempRocks
             tempRocks[rockIndex] = targetPos;
             return true;
         }
-        // if hit is the excluded rock, cannot push it
         if (hit == excludedRockIdx) return false;
-        // otherwise attempt to push that rock further
         if (depth + 1 > maxPushDepth) return false;
         if (!TryComputePushesRecursive(hit, dir, simGrid, tempRocks, depth + 1, pushes, excludedRockIdx))
             return false;
-        // after successfully pushing the blocking rock, move current
         pushes.Add(new PushAction(rockIndex, targetPos));
         tempRocks[rockIndex] = targetPos;
         return true;
     }
 
-    // --- CAMBIO AQUÍ ---
     // Devuelve un 'LevelState' en lugar de void o IEnumerator
     public LevelState GenerateLevel(int numRocks, int numHoles, int numWalls)
     {
@@ -333,7 +311,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                         continue;
                     }
 
-                    // (La heurística anti-muro de 1 celda ya fue eliminada)
 
                     // mover jugador detrás y actualizar
                     playerPos = behind;
@@ -359,17 +336,9 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         }
 
 
-        // 8) --- CAMBIO FINAL ---
-        // NO SPAWNEAR, DEVOLVER EL ESTADO PARA EL OPTIMIZADOR
-        // grid.SpawnRocks(rocksPos);   <-- ELIMINADO
-        // grid.SpawnPlayer(playerPos); <-- ELIMINADO
-
         if (debugSimulation)
             Debug.Log($"[BackFromGoal] Generación inicial terminada. Player: {playerPos}, Rocks: {rocksPos.Count}");
 
-        // El 'simGrid' que guardamos es el estado *antes* de mover las rocas.
-        // El optimizador usará el 'grid.GetCell()' original para muros/vacío.
-        // Guardamos 'simGrid' por si acaso, pero 'walls' es más útil.
         GridCellType[,] finalGridLayout = new GridCellType[grid.width, grid.height];
          for (int x = 0; x < grid.width; x++)
             for (int y = 0; y < grid.height; y++)
@@ -379,7 +348,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     }
 
 
-    // --- Helpers (Todos permanecen igual) ---
+    // --- Helpers---
     private bool IsRockAtPosition(Vector2Int pos, List<Vector2Int> rocksPos)
     {
         return rocksPos.FindIndex(r => r == pos) != -1;

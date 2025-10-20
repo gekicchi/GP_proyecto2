@@ -1,12 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Linq; // Necesario para OrderBy y Max
+using System.Linq;
 
 public class LevelOptimizer : MonoBehaviour
 {
-    public BackFromGoalAlgorithm generator; // Arrastra tu BFGA aquí
-    public GridManager grid; // Arrastra tu GridManager
+    public BackFromGoalAlgorithm generator;
+    public GridManager grid;
 
     [Header("Parámetros de Generación")]
     public int numRocks = 5;
@@ -35,7 +35,7 @@ public class LevelOptimizer : MonoBehaviour
     private IEnumerator OptimizeLevel_HC_Coroutine()
     {
         Debug.Log("Iniciando generación (BFGA)...");
-        // 1. SOLUCIÓN INICIAL (Usando tu Técnica Simple)
+        // 1. SOLUCIÓN INICIAL (Usando Técnica Simple)
         LevelState solucion_actual = generator.GenerateLevel(numRocks, numHoles, numWalls);
         
         // 2. FITNESS INICIAL
@@ -104,7 +104,7 @@ public class LevelOptimizer : MonoBehaviour
 
     // --- INICIO: Generación con Algoritmo Genético ---
 
-    // Llama a esta función para usar el Algoritmo Genético
+    // Función para usar el Algoritmo Genético
     public void StartGenerationWith_GeneticAlgorithm()
     {
         StartCoroutine(OptimizeLevel_AG_Coroutine());
@@ -274,7 +274,7 @@ public class LevelOptimizer : MonoBehaviour
 
     // --- FUNCIONES HELPER (Comunes) ---
 
-    // Esta es tu funcion_fitness MEJORADA
+    // funcion_fitness
     private float CalculateFitness(LevelState state)
     {
         float totalScore = 0;
