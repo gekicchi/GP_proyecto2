@@ -54,11 +54,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     [Tooltip("Número de pasos máximos por roca al retroceder desde la meta")]
     public int backwardsSteps = 20;
     [Tooltip("Profundidad máxima de empujes encadenados")]
-<<<<<<< Updated upstream
     public int maxPushDepth = 5;
-=======
-    public int maxPushDepth = 8; // SUGERENCIA: Bajar a 5 o 6 por rendimiento
->>>>>>> Stashed changes
     [Tooltip("Habilitar logs de depuración de la simulación")]
     public bool debugSimulation = true;
     [Tooltip("Distancia Manhattan objetivo a agujeros al dispersar rocas (heurística)")]

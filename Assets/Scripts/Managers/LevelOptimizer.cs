@@ -279,7 +279,7 @@ public class LevelOptimizer : MonoBehaviour
     {
         float totalScore = 0;
 
-        // --- 1. MÉTRICAS DE DISTANCIA (Lo que ya tenías) ---
+        // --- 1. MÉTRICAS DE DISTANCIA ---
         float distanceScore = 0;
         foreach (var rockPos in state.rocksPos)
         {
