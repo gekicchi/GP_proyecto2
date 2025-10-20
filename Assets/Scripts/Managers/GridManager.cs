@@ -74,9 +74,41 @@ public class GridManager : MonoBehaviour
         if (prevPlayer != null)
             Destroy(prevPlayer.gameObject);
 
+<<<<<<< Updated upstream
         Instantiate(playerPrefab, GridToWorld(pos), Quaternion.identity, gridParent);
         Debug.Log("putting player in: " + pos);
         playerPos = pos;
+=======
+        var playerObj = Instantiate(playerPrefab, GridToWorld(pos), Quaternion.identity, gridParent);
+        // Intentar obtener PlayerController en root o en hijos
+        var pc = playerObj.GetComponent<PlayerController>() ?? playerObj.GetComponentInChildren<PlayerController>();
+        if (pc != null)
+        {
+            pc.InitializePosition(pos);
+        }
+        else
+        {
+            // Si no lo encontramos inmediatamente, intentar localizarlo en los siguientes frames
+            StartCoroutine(InitializePlayerDelayed(playerObj, pos));
+        }
+    }
+
+    private System.Collections.IEnumerator InitializePlayerDelayed(GameObject playerObj, Vector2Int pos)
+    {
+        // Esperar unos frames por si el PlayerController se añade dinámicamente o está en un prefab complejo
+        for (int i = 0; i < 5; i++)
+        {
+            yield return null;
+            var pc = playerObj.GetComponent<PlayerController>() ?? playerObj.GetComponentInChildren<PlayerController>();
+            if (pc != null)
+            {
+                pc.InitializePosition(pos);
+                yield break;
+            }
+        }
+
+        // Si no se encontró, fallback: marcar la celda como Player
+>>>>>>> Stashed changes
         SetCell(pos, GridCellType.Player);
     }
 

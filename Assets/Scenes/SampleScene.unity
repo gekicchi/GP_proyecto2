@@ -456,9 +456,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fea6c994ec7c9f344b2b7d736001ef3d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  numRocks: 3
-  numHoles: 2
-  numWalls: 4
+  numRocksAndHoles: 2
+  numWalls: 10
   autoGenerateOnStart: 1
 --- !u!4 &2100028430
 Transform:

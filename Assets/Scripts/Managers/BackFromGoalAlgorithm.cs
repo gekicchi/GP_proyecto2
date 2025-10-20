@@ -1,36 +1,158 @@
-using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class BackFromGoalAlgorithm : MonoBehaviour
 {
+<<<<<<< Updated upstream
     private GridManager grid;
     private int backwardsSteps = 100;
+=======
+	private GridManager grid;
+>>>>>>> Stashed changes
 
-    public BackFromGoalAlgorithm(GridManager grid)
-    {
-        this.grid = grid;
-    }
+	[Tooltip("Número de pasos máximos por roca al retroceder desde la meta")]
+	public int backwardsSteps = 100;
+	[Tooltip("Profundidad máxima de empujes encadenados")]
+	public int maxPushDepth = 8;
+	[Tooltip("Habilitar logs de depuración de la simulación")]
+	public bool debugSimulation = true;
+	[Tooltip("Distancia Manhattan objetivo a agujeros al dispersar rocas (heurística)")]
+	public int scatterDistance = 3;
 
-    public void GenerateLevel(int numRocks, int numHoles, int numWalls)
+	public BackFromGoalAlgorithm(GridManager grid)
+	{
+		this.grid = grid;
+	}
+
+	// Representa una acción de empuje para mover una roca (índice en rocksPos -> nueva posición)
+	private struct PushAction
+	{
+		public int rockIndex;
+		public Vector2Int to;
+		public PushAction(int rockIndex, Vector2Int to)
+		{
+			this.rockIndex = rockIndex;
+			this.to = to;
+		}
+	}
+
+	// Intenta determinar una secuencia de empujes (hasta maxPushDepth) que permita al jugador
+	// alcanzar 'target' desde 'start'. Devuelve true y la lista de PushAction si es posible.
+	private bool CanPlayerReachWithPush(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos, int excludedRockIdx, out List<PushAction> outPushes)
+	{
+		// Quick path: sin empujes
+		if (CanPlayerReach(start, target, simGrid, rocksPos))
+		{
+			outPushes = new List<PushAction>();
+			return true;
+		}
+
+		// Depth-limited search trying single/multiple pushes up to maxPushDepth
+		List<PushAction> result = new List<PushAction>();
+		bool ok = CanPlayerReachWithPushDFS(start, target, simGrid, rocksPos, excludedRockIdx, 0, result);
+		outPushes = ok ? result : null;
+		return ok;
+	}
+
+	private bool CanPlayerReachWithPushDFS(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos, int excludedRockIdx, int depth, List<PushAction> accumulated)
+	{
+		if (depth >= maxPushDepth) return false;
+		// Try all rocks (except excluded) and directions as candidate pushes
+		int rockCount = rocksPos.Count;
+		Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+		for (int ri = 0; ri < rockCount; ri++)
+		{
+			if (ri == excludedRockIdx) continue;
+			foreach (var d in dirs)
+			{
+				// make temp copies
+				List<Vector2Int> tempRocks = new List<Vector2Int>(rocksPos);
+				GridCellType[,] tempGrid = (GridCellType[,])simGrid.Clone();
+				List<PushAction> pushesForThis;
+				if (!TryComputePushesForIndex(ri, d, tempGrid, tempRocks, excludedRockIdx, out pushesForThis))
+					continue;
+				// apply pushesForThis already mutated tempRocks inside TryComputePushesForIndex
+				// check reachable now
+				if (CanPlayerReach(start, target, tempGrid, tempRocks))
+				{
+					// append pushes and return
+					accumulated.AddRange(pushesForThis);
+					return true;
+				}
+				// else, try deeper sequences
+				List<PushAction> deeperAccum = new List<PushAction>(accumulated);
+				deeperAccum.AddRange(pushesForThis);
+				if (CanPlayerReachWithPushDFS(start, target, tempGrid, tempRocks, excludedRockIdx, depth + 1, deeperAccum))
+				{
+					// copy back the found sequence
+					accumulated.Clear();
+					accumulated.AddRange(deeperAccum);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private bool TryComputePushesForIndex(int rockIndex, Vector2Int dir, GridCellType[,] simGrid, List<Vector2Int> tempRocks, int excludedRockIdx, out List<PushAction> outPushes)
+	{
+		outPushes = new List<PushAction>();
+		// use a helper that mutates tempRocks and fills outPushes
+		return TryComputePushesRecursive(rockIndex, dir, simGrid, tempRocks, 0, outPushes, excludedRockIdx);
+	}
+
+	private bool TryComputePushesRecursive(int rockIndex, Vector2Int dir, GridCellType[,] simGrid, List<Vector2Int> tempRocks, int depth, List<PushAction> pushes, int excludedRockIdx)
+	{
+		if (depth > maxPushDepth) return false;
+		if (rockIndex < 0 || rockIndex >= tempRocks.Count) return false;
+		Vector2Int curPos = tempRocks[rockIndex];
+		Vector2Int targetPos = curPos + dir;
+		// bounds and wall
+		if (!grid.IsInsideGrid(targetPos)) return false;
+		if (simGrid[targetPos.x, targetPos.y] == GridCellType.Wall) return false;
+		// avoid pushing into borders or corners (same heuristics as generator)
+		if (IsBorder(targetPos)) return false;
+		if (IsCornerPosition(simGrid, targetPos)) return false;
+		// check if another rock occupies targetPos
+		int hit = tempRocks.FindIndex(r => r == targetPos);
+		if (hit == -1)
+		{
+			// can move current rock into empty target
+			pushes.Add(new PushAction(rockIndex, targetPos));
+			// apply to tempRocks
+			tempRocks[rockIndex] = targetPos;
+			return true;
+		}
+		// if hit is the excluded rock, cannot push it
+		if (hit == excludedRockIdx) return false;
+		// otherwise attempt to push that rock further
+		if (depth + 1 > maxPushDepth) return false;
+		if (!TryComputePushesRecursive(hit, dir, simGrid, tempRocks, depth + 1, pushes, excludedRockIdx))
+			return false;
+		// after successfully pushing the blocking rock, move current
+		pushes.Add(new PushAction(rockIndex, targetPos));
+		tempRocks[rockIndex] = targetPos;
+		return true;
+	}
+
+	// Genera un nivel usando el enfoque backward-from-goal
+	public void GenerateLevel(int numRocks, int numHoles, int numWalls)
     {
         grid.ClearLevel();
 
-        // ------------ COLOCANDO PAREDES ------------ //
+        // 1) Colocar paredes aleatorias
         List<Vector2Int> walls = new List<Vector2Int>();
         int attempts = 0;
-
-        while (walls.Count < numWalls && attempts < 1000)
+        while (walls.Count < numWalls && attempts < 2000)
         {
             attempts++;
-
-            Vector2Int pos = new Vector2Int(Random.Range(0, grid.width), Random.Range(0, grid.height));
-            if (grid.GetCell(pos) == GridCellType.Empty)
-                walls.Add(pos);
+            Vector2Int p = new Vector2Int(Random.Range(0, grid.width), Random.Range(0, grid.height));
+            if (grid.GetCell(p) == GridCellType.Empty)
+                walls.Add(p);
         }
         grid.SpawnWalls(walls);
 
-        // ------------ COLOCANDO META ------------ //
+        // 2) Colocar meta
         Vector2Int goalPos;
         do
         {
@@ -38,9 +160,11 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         } while (grid.GetCell(goalPos) != GridCellType.Empty);
         grid.PlaceGoal(goalPos);
 
-        // ------------ COLOCANDO AGUJEROS ------------ //
-        List<Vector2Int> holes = grid.GenerateRandomHoles(numHoles);
+        // 3) Validar parámetros
+        if (numHoles < 1) numHoles = 1;
+        if (numRocks < numHoles) numRocks = numHoles;
 
+<<<<<<< Updated upstream
         // ------------ COLOCANDO ROCAS ------------ //
         List<Vector2Int> rocksFinal = new List<Vector2Int>();
         foreach (var hole in holes)
@@ -58,39 +182,167 @@ public class BackFromGoalAlgorithm : MonoBehaviour
 
             rocksFinal.Add(rockPos);
         }*/
+=======
+        // 4) Colocar agujeros
+			List<Vector2Int> holes = grid.GenerateRandomHoles(numHoles);
+			// Evitar agujeros en el borde: construir finalHoles reemplazando los que estén en la orilla
+			List<Vector2Int> finalHoles = new List<Vector2Int>();
+			HashSet<Vector2Int> used = new HashSet<Vector2Int>(holes);
+			foreach (var h in holes)
+			{
+				if (!IsBorder(h))
+				{
+					finalHoles.Add(h);
+					continue;
+				}
+				// intentar buscar reemplazo interior
+				bool found = false;
+				for (int attempt = 0; attempt < 500; attempt++)
+				{
+					Vector2Int cand = new Vector2Int(Random.Range(1, grid.width - 1), Random.Range(1, grid.height - 1));
+					if (used.Contains(cand)) continue;
+					if (grid.GetCell(cand) != GridCellType.Empty) continue;
+					finalHoles.Add(cand);
+					used.Add(cand);
+					found = true;
+					break;
+				}
+				if (!found)
+				{
+					// fallback: conservar el agujero original y avisar
+					finalHoles.Add(h);
+					if (debugSimulation) Debug.LogWarning($"[BackFromGoal] No replacement found for border hole {h}, keeping it.");
+				}
+			}
+			// Instanciar prefabs de agujero con la lista final
+			if (finalHoles != null && finalHoles.Count > 0)
+			{
+				grid.SpawnHoles(finalHoles);
+				if (debugSimulation) Debug.Log($"[BackFromGoal] Spawned {finalHoles.Count} hole prefabs (final)");
+			}
+			if (finalHoles.Count < numHoles)
+			{
+				if (debugSimulation) Debug.LogWarning($"[BackFromGoal] Could only generate {finalHoles.Count} holes instead of requested {numHoles}");
+				// ajustar numRocks para emparejar la cantidad real de agujeros
+				if (numRocks < finalHoles.Count)
+				{
+					if (debugSimulation) Debug.Log($"[BackFromGoal] Increasing numRocks from {numRocks} to {finalHoles.Count} to match actual holes");
+					numRocks = finalHoles.Count;
+				}
+			}
 
-        // ------------ COLOCANDO JUGADOR ------------ //
-        Vector2Int playerFinalPos = grid.GetEmptyAdjacent(goalPos);
-
-        // ------------ RETROCEDER PASOS ------------ //
-        Vector2Int playerPos = playerFinalPos;
-        List<Vector2Int> rocksPos = new List<Vector2Int>(rocksFinal);
-
-        for (int i = 0; i <= backwardsSteps; i++)
+		// 5) Colocar rocas (primero en agujeros)
+		List<Vector2Int> rocksPos = new List<Vector2Int>();
+		List<Vector2Int> holesCopy = new List<Vector2Int>(finalHoles);
+        int placeInHoles = Mathf.Min(numRocks, holesCopy.Count);
+        for (int i = 0; i < placeInHoles; i++)
         {
+            int idx = Random.Range(0, holesCopy.Count);
+            rocksPos.Add(holesCopy[idx]);
+            holesCopy.RemoveAt(idx);
+        }
+>>>>>>> Stashed changes
+
+        // 6) Preparar simulación
+        GridCellType[,] simGrid = new GridCellType[grid.width, grid.height];
+        for (int x = 0; x < grid.width; x++)
+            for (int y = 0; y < grid.height; y++)
+                simGrid[x, y] = grid.GetCell(new Vector2Int(x, y));
+
+        foreach (var r in rocksPos)
+            simGrid[r.x, r.y] = GridCellType.Rock;
+
+        Vector2Int playerPos = goalPos;
+		List<int> holeRockIndices = new List<int>();
+		for (int i = 0; i < rocksPos.Count; i++)
+			if (finalHoles.Contains(rocksPos[i]))
+				holeRockIndices.Add(i);
+
+		if (debugSimulation)
+			Debug.Log($"[BackFromGoal] goal={goalPos}, holes={string.Join(",", finalHoles)}, initialRocks={string.Join(",", rocksPos)}");
+
+        // 7) Retroceso global corregido: jalar todas las rocas fuera de los agujeros
+        Dictionary<int, Vector2Int> lastMove = new Dictionary<int, Vector2Int>();
+
+        for (int step = 0; step < backwardsSteps; step++)
+        {
+<<<<<<< Updated upstream
             /*
             Vector2Int dir = GetRandomDirection();
             Vector2Int newPlayerPos = playerPos + dir;
+=======
+            bool anyMoved = false;
+>>>>>>> Stashed changes
 
-            if (!grid.IsInsideGrid(newPlayerPos) || grid.GetCell(newPlayerPos) == GridCellType.Wall)
-                continue;
-
-            if (IsMovableBackward(newPlayerPos))
-                playerPos = newPlayerPos;
-            else
+            // iterar TODAS las rocas, no solo las de agujeros
+            for (int i = 0; i < rocksPos.Count; i++)
             {
-                int rockIndex = rocksPos.FindIndex(r => r == newPlayerPos);
-                if (rockIndex == -1)
+                Vector2Int rpos = rocksPos[i];
+
+                // si ya está lejos de los agujeros, no mover más
+                if (MinDistanceToHoles(rpos, holes) > scatterDistance + 2)
                     continue;
 
+<<<<<<< Updated upstream
                 Vector2Int rockPrevPos = newPlayerPos + dir;
 
                 if (grid.IsInsideGrid(rockPrevPos) && IsMovableBackward(rockPrevPos))
+=======
+                // probar todas las direcciones
+                Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+                System.Array.Sort(dirs, (a, b) =>
+>>>>>>> Stashed changes
                 {
-                    rocksPos[rockIndex] = rockPrevPos;
-                    playerPos = newPlayerPos;
+                    int da = MinDistanceToHoles(rpos + a, holes);
+                    int db = MinDistanceToHoles(rpos + b, holes);
+                    return db.CompareTo(da); // priorizar alejamiento
+                });
+
+                foreach (var dir in dirs)
+                {
+                    // ❌ Evitar vaivén: no repetir movimiento inverso inmediato
+                    if (lastMove.ContainsKey(i) && lastMove[i] == -dir)
+                        continue;
+
+                    Vector2Int targ = rpos + dir;
+                    Vector2Int behind = rpos - dir;
+
+                    // validación fuerte
+                    if (!grid.IsInsideGrid(targ) || !grid.IsInsideGrid(behind))
+                        continue;
+                    if (simGrid[targ.x, targ.y] == GridCellType.Wall) continue;
+                    if (IsRockAtPosition(targ, rocksPos)) continue;
+                    if (IsBorder(targ)) continue;
+                    if (IsCornerPosition(simGrid, targ)) continue;
+                    List<PushAction> pushesToReach; 
+                    if (!CanPlayerReachWithPush(playerPos, behind, simGrid, rocksPos, i, out pushesToReach))
+                    {
+                        continue;
+                    }
+
+                    // evitar pegarse al muro (si está a 1 celda)
+                    int distWallX = Mathf.Min(targ.x, grid.width - 1 - targ.x);
+                    int distWallY = Mathf.Min(targ.y, grid.height - 1 - targ.y);
+                    if (distWallX <= 1 || distWallY <= 1) continue;
+
+                    // mover jugador detrás y actualizar
+                    playerPos = behind;
+                    simGrid[rpos.x, rpos.y] = holes.Contains(rpos) ? GridCellType.Hole : GridCellType.Empty;
+                    simGrid[targ.x, targ.y] = GridCellType.Rock;
+                    rocksPos[i] = targ;
+                    playerPos = rpos; // termina donde estaba la roca
+
+                    // registrar último movimiento para prevenir vaivén
+                    lastMove[i] = dir;
+
+                    if (debugSimulation)
+                        Debug.Log($"[BackFromGoal] Step {step}: rock {i} {rpos}->{targ}, player {behind}->{rpos}");
+
+                    anyMoved = true;
+                    break; // siguiente roca
                 }
             }
+<<<<<<< Updated upstream
             */
 
             Vector2Int dir = GetRandomDirection();
@@ -123,34 +375,82 @@ public class BackFromGoalAlgorithm : MonoBehaviour
 
             if (IsMovableBackward(newPlayerPos)) // se mueve a una casilla vacia
                 playerPos = newPlayerPos;
+=======
+
+            // si ninguna roca se movió este ciclo, termina
+            if (!anyMoved)
+            {
+                if (debugSimulation) Debug.Log("[BackFromGoal] no rocks moved this iteration, stopping.");
+                break;
+            }
+>>>>>>> Stashed changes
         }
 
-        grid.SpawnHoles(holes);
+
+        // 8) Spawnear resultados finales
         grid.SpawnRocks(rocksPos);
         grid.SpawnPlayer(playerPos);
     }
 
-    // Determina si la celda es movible hacia atr�s (vac�a o agujero) y evita bordes
-    private bool IsMovableBackward(Vector2Int pos)
-    {
-        if (pos.x <= 0 || pos.y <= 0 || pos.x >= grid.width - 1 || pos.y >= grid.height - 1)
-            return false;
 
-        GridCellType type = grid.GetCell(pos);
-        return type == GridCellType.Empty || type == GridCellType.Hole;
-    }
+	// Helpers
+	private bool IsRockAtPosition(Vector2Int pos, List<Vector2Int> rocksPos)
+	{
+		return rocksPos.FindIndex(r => r == pos) != -1;
+	}
 
-    // Direcciones aleatorias
-    private Vector2Int GetRandomDirection()
-    {
-        int r = Random.Range(0, 4);
-        switch (r)
-        {
-            case 0: return Vector2Int.up;
-            case 1: return Vector2Int.down;
-            case 2: return Vector2Int.left;
-            case 3: return Vector2Int.right;
-        }
-        return Vector2Int.zero;
-    }
+	private bool IsBorder(Vector2Int pos)
+	{
+		return pos.x == 0 || pos.y == 0 || pos.x == grid.width - 1 || pos.y == grid.height - 1;
+	}
+
+	// Detecta esquinas (deadlocks) simples: bloqueado vertical y horizontal
+	private bool IsCornerPosition(GridCellType[,] simGrid, Vector2Int pos)
+	{
+		System.Func<Vector2Int, bool> IsWallOrOut = (Vector2Int p) =>
+		{
+			if (!grid.IsInsideGrid(p)) return true;
+			return simGrid[p.x, p.y] == GridCellType.Wall;
+		};
+		bool vert = IsWallOrOut(pos + Vector2Int.up) || IsWallOrOut(pos + Vector2Int.down);
+		bool hor = IsWallOrOut(pos + Vector2Int.left) || IsWallOrOut(pos + Vector2Int.right);
+		return vert && hor;
+	}
+
+	private int MinDistanceToHoles(Vector2Int pos, List<Vector2Int> holes)
+	{
+		int min = int.MaxValue;
+		foreach (var h in holes)
+		{
+			int d = Mathf.Abs(h.x - pos.x) + Mathf.Abs(h.y - pos.y);
+			if (d < min) min = d;
+		}
+		return min == int.MaxValue ? int.MaxValue : min;
+	}
+
+	// BFS para ver si el jugador puede alcanzar target desde start sin cruzar rocas/paredes
+	private bool CanPlayerReach(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos)
+	{
+		if (start == target) return true;
+		int w = grid.width, h = grid.height;
+		bool[,] visited = new bool[w, h];
+		Queue<Vector2Int> q = new Queue<Vector2Int>();
+		q.Enqueue(start); visited[start.x, start.y] = true;
+		Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+		while (q.Count > 0)
+		{
+			var cur = q.Dequeue();
+			foreach (var d in dirs)
+			{
+				Vector2Int nxt = cur + d;
+				if (nxt.x < 0 || nxt.y < 0 || nxt.x >= w || nxt.y >= h) continue;
+				if (visited[nxt.x, nxt.y]) continue;
+				if (simGrid[nxt.x, nxt.y] == GridCellType.Wall) continue;
+				if (IsRockAtPosition(nxt, rocksPos)) continue;
+				if (nxt == target) return true;
+				visited[nxt.x, nxt.y] = true; q.Enqueue(nxt);
+			}
+		}
+		return false;
+	}
 }

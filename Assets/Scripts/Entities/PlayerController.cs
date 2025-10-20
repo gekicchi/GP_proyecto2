@@ -8,6 +8,7 @@ public class PlayerController : MonoBehaviour
 
     private GridManager grid;
     private Vector2Int gridPos;
+    private bool initialized = false;
 
     public Vector2Int GridPos { set { gridPos = value; } }
 
@@ -20,14 +21,26 @@ public class PlayerController : MonoBehaviour
     private void Start()
     {
         grid = FindFirstObjectByType<GridManager>();
+<<<<<<< Updated upstream
         gridPos = new Vector2Int(grid.playerPos.x, grid.playerPos.y);
         transform.position = grid.GridToWorld(gridPos);
         grid.SetCell(gridPos, GridCellType.Player);
+=======
+
+        // Si no se inicializÃ³ previamente (via InitializePosition), usar (0,0) por defecto.
+        if (!initialized)
+        {
+            gridPos = new Vector2Int(0, 0);
+            transform.position = grid.GridToWorld(gridPos);
+            grid.SetCell(gridPos, GridCellType.Player);
+            initialized = true;
+        }
+>>>>>>> Stashed changes
     }
 
     private void Update()
     {
-        // Si estamos sobre la meta y se desbloquea mientras estamos ahí, completamos el nivel
+        // Si estamos sobre la meta y se desbloquea mientras estamos ahï¿½, completamos el nivel
         if (!levelCompleted && grid != null && grid.GetCell(gridPos) == GridCellType.Goal && grid.IsGoalUnlocked())
         {
             levelCompleted = true;
@@ -73,24 +86,24 @@ public class PlayerController : MonoBehaviour
                         levelCompleted = true;
                         yield return new WaitForSeconds(0.1f);
                         LevelCompleted();
-                        yield break; // solo termina si el nivel se completó
+                        yield break; // solo termina si el nivel se completï¿½
                     }
                     else
                     {
-                        Debug.Log("La meta está bloqueada, hay agujeros sin cubrir");
-                        // no hacemos yield break, la coroutine continuará
+                        Debug.Log("La meta estï¿½ bloqueada, hay agujeros sin cubrir");
+                        // no hacemos yield break, la coroutine continuarï¿½
                     }
                     break; // permitir que canMove se resetee al final
 
 
                 case GridCellType.Wall:
-                    // No se puede mover a través de paredes
+                    // No se puede mover a travï¿½s de paredes
                     break;
 
                 case GridCellType.Hole:
                     // Jugador cae en agujero ? reiniciar nivel
                     grid.SetCell(gridPos, GridCellType.Empty);
-                    yield return new WaitForSeconds(0.1f); // pequeño delay para animación
+                    yield return new WaitForSeconds(0.1f); // pequeï¿½o delay para animaciï¿½n
                     grid.ClearLevel();
                     yield break;
 
@@ -104,7 +117,7 @@ public class PlayerController : MonoBehaviour
 
                         if (rockTarget == GridCellType.Empty)
                         {
-                            // Empuja roca a celda vacía
+                            // Empuja roca a celda vacï¿½a
                             MoveRockTo(rock, rockNewPos);
                             MovePlayerTo(newPos);
                         }
@@ -141,7 +154,7 @@ public class PlayerController : MonoBehaviour
 
         gridPos = newPos;
 
-        // Si la nueva posición es la meta, no sobreescribirla (mantener Goal)
+        // Si la nueva posiciï¿½n es la meta, no sobreescribirla (mantener Goal)
         if (grid.GetCell(gridPos) != GridCellType.Goal)
             grid.SetCell(gridPos, GridCellType.Player);
 
@@ -169,23 +182,38 @@ public class PlayerController : MonoBehaviour
 
     public void InitializePosition(Vector2Int startPos)
     {
+        // Asegurar referencia al GridManager (puede que InitializePosition se llame antes de Start)
+        if (grid == null)
+            grid = FindFirstObjectByType<GridManager>();
+
         gridPos = startPos;
-        transform.position = grid.GridToWorld(gridPos);
-        // Si el startPos es la meta, mantener la celda como Goal en lugar de Player
-        if (grid.GetCell(gridPos) != GridCellType.Goal)
-            grid.SetCell(gridPos, GridCellType.Player);
+
+        if (grid != null)
+        {
+            transform.position = grid.GridToWorld(gridPos);
+            // Si el startPos es la meta, mantener la celda como Goal en lugar de Player
+            if (grid.GetCell(gridPos) != GridCellType.Goal)
+                grid.SetCell(gridPos, GridCellType.Player);
+        }
+        else
+        {
+            // Fallback: si no hay GridManager, solo posicionar en world (0,0)
+            transform.position = Vector3.zero;
+        }
+
         canMove = true;
+        initialized = true;
     }
 
     private void LevelCompleted()
     {
-        Debug.Log("¡Nivel completado!");
-        // Aquí puedes cargar el siguiente nivel o mostrar pantalla de victoria
+        Debug.Log("ï¿½Nivel completado!");
+        // Aquï¿½ puedes cargar el siguiente nivel o mostrar pantalla de victoria
     }
 
     private System.Collections.IEnumerator CompleteLevelRoutine()
     {
-        // Pequeño delay para permitir animaciones o sonidos
+        // Pequeï¿½o delay para permitir animaciones o sonidos
         yield return new WaitForSeconds(0.1f);
         LevelCompleted();
     }
