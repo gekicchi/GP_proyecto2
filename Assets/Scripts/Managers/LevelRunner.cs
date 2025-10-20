@@ -13,6 +13,19 @@ public class LevelRunner : MonoBehaviour
     private GridManager grid;
     private BackFromGoalAlgorithm generator;
 
+    public void SetOptimizationMode(int index)
+    {
+
+        if (System.Enum.IsDefined(typeof(OptimizationMode), index))
+        {
+            optimizationMode = (OptimizationMode)index;
+            Debug.Log($"Modo de Optimización seleccionado: {optimizationMode}");
+        }
+        else
+        {
+            Debug.LogError($"Índice de Dropdown {index} no corresponde a un valor válido en OptimizationMode.");
+        }
+    }
     private void Start()
     {
         grid = FindFirstObjectByType<GridManager>();
