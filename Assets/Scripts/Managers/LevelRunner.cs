@@ -27,13 +27,9 @@ public class LevelRunner : MonoBehaviour
             GenerateLevel();
     }
 
-    private void Update()
+    public void ReGenerar()
     {
-        // Presiona T para regenerar nivel
-        if (Input.GetKeyDown(KeyCode.T))
-        {
             GenerateLevel();
-        }
     }
 
     public void GenerateLevel()
