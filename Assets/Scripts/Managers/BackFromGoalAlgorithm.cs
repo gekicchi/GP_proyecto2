@@ -278,8 +278,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                     if (IsBorder(targ)) continue;
                     if (IsCornerPosition(simGrid, targ)) continue;
                     
-                    // --- INICIO DEL CAMBIO ---
-                    // Esta es la corrección:
                     // Usamos CanPlayerReachWithPush para simular si el jugador puede
                     // empujar OTRAS rocas (todas excepto 'i') para llegar a 'behind'.
                     List<PushAction> pushesToReach; 
@@ -287,12 +285,18 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                     {
                         continue;
                     }
-                    // --- FIN DEL CAMBIO ---
 
+                    // --- INICIO DE LA CORRECCIÓN ---
+                    // Esta heurística era demasiado agresiva y atascaba rocas
+                    // que estaban cerca de los bordes, pero no en ellos.
+                    /*
                     // evitar pegarse al muro (si está a 1 celda)
                     int distWallX = Mathf.Min(targ.x, grid.width - 1 - targ.x);
                     int distWallY = Mathf.Min(targ.y, grid.height - 1 - targ.y);
                     if (distWallX <= 1 || distWallY <= 1) continue;
+                    */
+                    // --- FIN DE LA CORRECCIÓN ---
+
 
                     // mover jugador detrás y actualizar
                     playerPos = behind;
