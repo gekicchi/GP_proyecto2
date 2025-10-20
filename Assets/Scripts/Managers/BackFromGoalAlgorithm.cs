@@ -1,6 +1,52 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// --- Objeto para guardar el estado del nivel ---
+// Puedes mover esta clase a su propio archivo LevelState.cs
+public class LevelState
+{
+    // Elementos estáticos (no cambian en Hill Climbing)
+    public GridCellType[,] gridLayout; // El grid base (muros, vacío)
+    public List<Vector2Int> holes;
+    public Vector2Int goalPos;
+    public List<Vector2Int> walls;
+
+    // Elementos dinámicos (lo que optimiza Hill Climbing)
+    public List<Vector2Int> rocksPos;
+    public Vector2Int playerPos;
+
+    public float fitness; // Puntuación de esta solución
+
+    // Constructor para la generación inicial
+    public LevelState(GridCellType[,] grid, List<Vector2Int> h, Vector2Int g, List<Vector2Int> w, List<Vector2Int> r, Vector2Int p)
+    {
+        this.gridLayout = grid;
+        this.holes = h;
+        this.goalPos = g;
+        this.walls = w;
+        this.rocksPos = r;
+        this.playerPos = p;
+        this.fitness = 0;
+    }
+
+    // Constructor para clonar (necesario para generar vecinos)
+    public LevelState(LevelState original)
+    {
+        // Los estáticos se pueden referenciar, no cambian
+        this.gridLayout = original.gridLayout;
+        this.holes = original.holes;
+        this.goalPos = original.goalPos;
+        this.walls = original.walls;
+
+        // Los dinámicos deben ser copias profundas
+        this.rocksPos = new List<Vector2Int>(original.rocksPos);
+        this.playerPos = original.playerPos;
+        this.fitness = original.fitness;
+    }
+}
+
+
+// --- Algoritmo de Generación ---
 public class BackFromGoalAlgorithm : MonoBehaviour
 {
     private GridManager grid;
@@ -8,15 +54,28 @@ public class BackFromGoalAlgorithm : MonoBehaviour
     [Tooltip("Número de pasos máximos por roca al retroceder desde la meta")]
     public int backwardsSteps = 20;
     [Tooltip("Profundidad máxima de empujes encadenados")]
+<<<<<<< Updated upstream
     public int maxPushDepth = 5;
+=======
+    public int maxPushDepth = 8; // SUGERENCIA: Bajar a 5 o 6 por rendimiento
+>>>>>>> Stashed changes
     [Tooltip("Habilitar logs de depuración de la simulación")]
     public bool debugSimulation = true;
     [Tooltip("Distancia Manhattan objetivo a agujeros al dispersar rocas (heurística)")]
     public int scatterDistance = 3;
 
-    public BackFromGoalAlgorithm(GridManager grid)
+    // Unity MonoBehaviours should not rely on constructors for initialization.
+    // Provide an explicit Initialize method so other scripts can set the GridManager.
+    public void Initialize(GridManager grid)
     {
         this.grid = grid;
+    }
+
+    // Public property to allow other scripts to set/get the GridManager without calling Initialize.
+    public GridManager Grid
+    {
+        get { return grid; }
+        set { grid = value; }
     }
 
     // Representa una acción de empuje para mover una roca (índice en rocksPos -> nueva posición)
@@ -31,8 +90,8 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         }
     }
 
-    // Intenta determinar una secuencia de empujes (hasta maxPushDepth) que permita al jugador
-    // alcanzar 'target' desde 'start'. Devuelve true y la lista de PushAction si es posible.
+    // ... (CanPlayerReachWithPush y sus helpers DFS/Recursive no cambian) ...
+
     private bool CanPlayerReachWithPush(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos, int excludedRockIdx, out List<PushAction> outPushes)
     {
         // Quick path: sin empujes
@@ -130,8 +189,9 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         return true;
     }
 
-    // Genera un nivel usando el enfoque backward-from-goal
-    public void GenerateLevel(int numRocks, int numHoles, int numWalls)
+    // --- CAMBIO AQUÍ ---
+    // Devuelve un 'LevelState' en lugar de void o IEnumerator
+    public LevelState GenerateLevel(int numRocks, int numHoles, int numWalls)
     {
         grid.ClearLevel();
 
@@ -145,7 +205,7 @@ public class BackFromGoalAlgorithm : MonoBehaviour
             if (grid.GetCell(p) == GridCellType.Empty)
                 walls.Add(p);
         }
-        grid.SpawnWalls(walls);
+        grid.SpawnWalls(walls); // Spawneamos estáticos
 
         // 2) Colocar meta
         Vector2Int goalPos;
@@ -153,59 +213,57 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         {
             goalPos = new Vector2Int(Random.Range(1, grid.width - 1), Random.Range(1, grid.height - 1));
         } while (grid.GetCell(goalPos) != GridCellType.Empty);
-        grid.PlaceGoal(goalPos);
+        grid.PlaceGoal(goalPos); // Spawneamos estáticos
 
         // 3) Validar parámetros
         if (numHoles < 1) numHoles = 1;
         if (numRocks < numHoles) numRocks = numHoles;
 
         // 4) Colocar agujeros
-            List<Vector2Int> holes = grid.GenerateRandomHoles(numHoles);
-            // Evitar agujeros en el borde: construir finalHoles reemplazando los que estén en la orilla
-            List<Vector2Int> finalHoles = new List<Vector2Int>();
-            HashSet<Vector2Int> used = new HashSet<Vector2Int>(holes);
-            foreach (var h in holes)
+        List<Vector2Int> holes = grid.GenerateRandomHoles(numHoles);
+        List<Vector2Int> finalHoles = new List<Vector2Int>();
+        HashSet<Vector2Int> used = new HashSet<Vector2Int>(holes);
+        foreach (var h in holes)
+        {
+            if (!IsBorder(h))
             {
-                if (!IsBorder(h))
-                {
-                    finalHoles.Add(h);
-                    continue;
-                }
-                // intentar buscar reemplazo interior
-                bool found = false;
-                for (int attempt = 0; attempt < 500; attempt++)
-                {
-                    Vector2Int cand = new Vector2Int(Random.Range(1, grid.width - 1), Random.Range(1, grid.height - 1));
-                    if (used.Contains(cand)) continue;
-                    if (grid.GetCell(cand) != GridCellType.Empty) continue;
-                    finalHoles.Add(cand);
-                    used.Add(cand);
-                    found = true;
-                    break;
-                }
-                if (!found)
-                {
-                    // fallback: conservar el agujero original y avisar
-                    finalHoles.Add(h);
-                    if (debugSimulation) Debug.LogWarning($"[BackFromGoal] No replacement found for border hole {h}, keeping it.");
-                }
+                finalHoles.Add(h);
+                continue;
             }
-            // Instanciar prefabs de agujero con la lista final
-            if (finalHoles != null && finalHoles.Count > 0)
+            // (Lógica de reemplazo de agujeros en borde...)
+            bool found = false;
+            for (int attempt = 0; attempt < 500; attempt++)
             {
-                grid.SpawnHoles(finalHoles);
-                if (debugSimulation) Debug.Log($"[BackFromGoal] Spawned {finalHoles.Count} hole prefabs (final)");
+                Vector2Int cand = new Vector2Int(Random.Range(1, grid.width - 1), Random.Range(1, grid.height - 1));
+                if (used.Contains(cand)) continue;
+                if (grid.GetCell(cand) != GridCellType.Empty) continue;
+                finalHoles.Add(cand);
+                used.Add(cand);
+                found = true;
+                break;
             }
-            if (finalHoles.Count < numHoles)
+            if (!found)
             {
-                if (debugSimulation) Debug.LogWarning($"[BackFromGoal] Could only generate {finalHoles.Count} holes instead of requested {numHoles}");
-                // ajustar numRocks para emparejar la cantidad real de agujeros
-                if (numRocks < finalHoles.Count)
-                {
-                    if (debugSimulation) Debug.Log($"[BackFromGoal] Increasing numRocks from {numRocks} to {finalHoles.Count} to match actual holes");
-                    numRocks = finalHoles.Count;
-                }
+                finalHoles.Add(h);
+                if (debugSimulation) Debug.LogWarning($"[BackFromGoal] No replacement found for border hole {h}, keeping it.");
             }
+        }
+        
+        if (finalHoles != null && finalHoles.Count > 0)
+        {
+            grid.SpawnHoles(finalHoles); // Spawneamos estáticos
+            if (debugSimulation) Debug.Log($"[BackFromGoal] Spawned {finalHoles.Count} hole prefabs (final)");
+        }
+        if (finalHoles.Count < numHoles)
+        {
+             // (Lógica de ajuste de numRocks...)
+            if (debugSimulation) Debug.LogWarning($"[BackFromGoal] Could only generate {finalHoles.Count} holes instead of requested {numHoles}");
+            if (numRocks < finalHoles.Count)
+            {
+                if (debugSimulation) Debug.Log($"[BackFromGoal] Increasing numRocks from {numRocks} to {finalHoles.Count} to match actual holes");
+                numRocks = finalHoles.Count;
+            }
+        }
 
         // 5) Colocar rocas (primero en agujeros)
         List<Vector2Int> rocksPos = new List<Vector2Int>();
@@ -243,34 +301,29 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         {
             bool anyMoved = false;
 
-            // iterar TODAS las rocas, no solo las de agujeros
             for (int i = 0; i < rocksPos.Count; i++)
             {
                 Vector2Int rpos = rocksPos[i];
 
-                // si ya está lejos de los agujeros, no mover más
-                if (MinDistanceToHoles(rpos, holes) > scatterDistance + 2)
+                if (MinDistanceToHoles(rpos, finalHoles) > scatterDistance + 2)
                     continue;
 
-                // probar todas las direcciones
                 Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
                 System.Array.Sort(dirs, (a, b) =>
                 {
-                    int da = MinDistanceToHoles(rpos + a, holes);
-                    int db = MinDistanceToHoles(rpos + b, holes);
+                    int da = MinDistanceToHoles(rpos + a, finalHoles);
+                    int db = MinDistanceToHoles(rpos + b, finalHoles);
                     return db.CompareTo(da); // priorizar alejamiento
                 });
 
                 foreach (var dir in dirs)
                 {
-                    // ❌ Evitar vaivén: no repetir movimiento inverso inmediato
                     if (lastMove.ContainsKey(i) && lastMove[i] == -dir)
                         continue;
 
                     Vector2Int targ = rpos + dir;
                     Vector2Int behind = rpos - dir;
 
-                    // validación fuerte
                     if (!grid.IsInsideGrid(targ) || !grid.IsInsideGrid(behind))
                         continue;
                     if (simGrid[targ.x, targ.y] == GridCellType.Wall) continue;
@@ -278,34 +331,20 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                     if (IsBorder(targ)) continue;
                     if (IsCornerPosition(simGrid, targ)) continue;
                     
-                    // Usamos CanPlayerReachWithPush para simular si el jugador puede
-                    // empujar OTRAS rocas (todas excepto 'i') para llegar a 'behind'.
                     List<PushAction> pushesToReach; 
                     if (!CanPlayerReachWithPush(playerPos, behind, simGrid, rocksPos, i, out pushesToReach))
                     {
                         continue;
                     }
 
-                    // --- INICIO DE LA CORRECCIÓN ---
-                    // Esta heurística era demasiado agresiva y atascaba rocas
-                    // que estaban cerca de los bordes, pero no en ellos.
-                    /*
-                    // evitar pegarse al muro (si está a 1 celda)
-                    int distWallX = Mathf.Min(targ.x, grid.width - 1 - targ.x);
-                    int distWallY = Mathf.Min(targ.y, grid.height - 1 - targ.y);
-                    if (distWallX <= 1 || distWallY <= 1) continue;
-                    */
-                    // --- FIN DE LA CORRECCIÓN ---
-
+                    // (La heurística anti-muro de 1 celda ya fue eliminada)
 
                     // mover jugador detrás y actualizar
                     playerPos = behind;
-                    simGrid[rpos.x, rpos.y] = holes.Contains(rpos) ? GridCellType.Hole : GridCellType.Empty;
+                    simGrid[rpos.x, rpos.y] = finalHoles.Contains(rpos) ? GridCellType.Hole : GridCellType.Empty;
                     simGrid[targ.x, targ.y] = GridCellType.Rock;
                     rocksPos[i] = targ;
                     playerPos = rpos; // termina donde estaba la roca
-
-                    // registrar último movimiento para prevenir vaivén
                     lastMove[i] = dir;
 
                     if (debugSimulation)
@@ -316,7 +355,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
                 }
             }
 
-            // si ninguna roca se movió este ciclo, termina
             if (!anyMoved)
             {
                 if (debugSimulation) Debug.Log("[BackFromGoal] no rocks moved this iteration, stopping.");
@@ -325,13 +363,27 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         }
 
 
-        // 8) Spawnear resultados finales
-        grid.SpawnRocks(rocksPos);
-        grid.SpawnPlayer(playerPos);
+        // 8) --- CAMBIO FINAL ---
+        // NO SPAWNEAR, DEVOLVER EL ESTADO PARA EL OPTIMIZADOR
+        // grid.SpawnRocks(rocksPos);   <-- ELIMINADO
+        // grid.SpawnPlayer(playerPos); <-- ELIMINADO
+
+        if (debugSimulation)
+            Debug.Log($"[BackFromGoal] Generación inicial terminada. Player: {playerPos}, Rocks: {rocksPos.Count}");
+
+        // El 'simGrid' que guardamos es el estado *antes* de mover las rocas.
+        // El optimizador usará el 'grid.GetCell()' original para muros/vacío.
+        // Guardamos 'simGrid' por si acaso, pero 'walls' es más útil.
+        GridCellType[,] finalGridLayout = new GridCellType[grid.width, grid.height];
+         for (int x = 0; x < grid.width; x++)
+            for (int y = 0; y < grid.height; y++)
+                finalGridLayout[x, y] = grid.GetCell(new Vector2Int(x, y));
+
+        return new LevelState(finalGridLayout, finalHoles, goalPos, walls, rocksPos, playerPos);
     }
 
 
-    // Helpers
+    // --- Helpers (Todos permanecen igual) ---
     private bool IsRockAtPosition(Vector2Int pos, List<Vector2Int> rocksPos)
     {
         return rocksPos.FindIndex(r => r == pos) != -1;
@@ -342,7 +394,6 @@ public class BackFromGoalAlgorithm : MonoBehaviour
         return pos.x == 0 || pos.y == 0 || pos.x == grid.width - 1 || pos.y == grid.height - 1;
     }
 
-    // Detecta esquinas (deadlocks) simples: bloqueado vertical y horizontal
     private bool IsCornerPosition(GridCellType[,] simGrid, Vector2Int pos)
     {
         System.Func<Vector2Int, bool> IsWallOrOut = (Vector2Int p) =>
@@ -363,10 +414,9 @@ public class BackFromGoalAlgorithm : MonoBehaviour
             int d = Mathf.Abs(h.x - pos.x) + Mathf.Abs(h.y - pos.y);
             if (d < min) min = d;
         }
-        return min == int.MaxValue ? int.MaxValue : min;
+        return min == int.MaxValue ? 0 : min;
     }
 
-    // BFS para ver si el jugador puede alcanzar target desde start sin cruzar rocas/paredes
     private bool CanPlayerReach(Vector2Int start, Vector2Int target, GridCellType[,] simGrid, List<Vector2Int> rocksPos)
     {
         if (start == target) return true;

@@ -3476,6 +3476,8 @@ GameObject:
   m_Component:
   - component: {fileID: 2100028430}
   - component: {fileID: 2100028429}
+  - component: {fileID: 2100028431}
+  - component: {fileID: 2100028432}
   m_Layer: 0
   m_Name: LevelGenerator
   m_TagString: Untagged
@@ -3495,6 +3497,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fea6c994ec7c9f344b2b7d736001ef3d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  optimizationMode: 1
   numRocksAndHoles: 2
   numWalls: 10
   autoGenerateOnStart: 1
@@ -3513,6 +3516,45 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2100028431
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100028428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99bf9071d26283a41bf9804369bb200e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  generator: {fileID: 2100028432}
+  grid: {fileID: 1732667533}
+  numRocks: 2
+  numHoles: 2
+  numWalls: 10
+  hc_MaxIterations: 100
+  hc_NeighborsPerIteration: 20
+  ag_Generations: 100
+  ag_PopulationSize: 50
+  ag_MutationRate: 0.05
+  ag_TournamentSize: 3
+--- !u!114 &2100028432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2100028428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d21db6535231d0a41abccbfcf5e646fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  backwardsSteps: 20
+  maxPushDepth: 5
+  debugSimulation: 1
+  scatterDistance: 3
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
