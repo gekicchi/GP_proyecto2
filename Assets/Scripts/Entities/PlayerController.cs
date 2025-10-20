@@ -21,14 +21,10 @@ public class PlayerController : MonoBehaviour
     private void Start()
     {
         grid = FindFirstObjectByType<GridManager>();
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
         gridPos = new Vector2Int(grid.playerPos.x, grid.playerPos.y);
         transform.position = grid.GridToWorld(gridPos);
         grid.SetCell(gridPos, GridCellType.Player);
-=======
-=======
->>>>>>> Stashed changes
+
 
         // Si no se inicializó previamente (via InitializePosition), usar (0,0) por defecto.
         if (!initialized)
@@ -38,10 +34,6 @@ public class PlayerController : MonoBehaviour
             grid.SetCell(gridPos, GridCellType.Player);
             initialized = true;
         }
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     }
 
     private void Update()
